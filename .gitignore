@@ -1,0 +1,8 @@
+.DS_Store
+claude_state/
+openclaw_state/agents/
+openclaw_state/identity/
+openclaw_state/chrome-profile/
+openclaw_state/browser/
+openclaw_state/openclaw.json
+openclaw_state/short-movie.db
