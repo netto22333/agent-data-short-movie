@@ -5,6 +5,18 @@ description: pending の generation_jobs から映像ファーストの全体シ
 
 # Step6: 全体シナリオ生成（人間レビュー①必須）
 
+## 実行方法（必須）
+
+このステップは **Claude Code** で実行する。openclawから以下のように呼び出すこと:
+
+```bash
+claude --print "step6-generate-scenarios スキルを実行してください。job_id={job_id}"
+```
+
+⚠️ openclawが直接シナリオ生成を行わないこと。必ず `claude` コマンドに委譲する。
+
+## 手順
+
 1. `generation_jobs` の最新 pending レコードを取得する。
 2. 下記**映像ファースト4原則**に基づいた全体シナリオ案を2〜3案生成する。
 3. 各案を人間に提示する。

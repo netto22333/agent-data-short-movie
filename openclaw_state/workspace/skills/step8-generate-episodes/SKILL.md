@@ -5,6 +5,18 @@ description: 承認済みジョブからepisode_count分の各話要素を映像
 
 # Step8: エピソード構造 + セリフ/台本生成
 
+## 実行方法（必須）
+
+このステップは **Claude Code** で実行する。openclawから以下のように呼び出すこと:
+
+```bash
+claude --print "step8-generate-episodes スキルを実行してください。job_id={job_id}"
+```
+
+⚠️ openclawが直接エピソード生成を行わないこと。必ず `claude` コマンドに委譲する。
+
+## 手順
+
 1. 対象 `generation_job_id` を確認する（ワークフローから引き継ぐか、以下で確認）:
    ```sql
    SELECT id, series_title, prompt_review_status
