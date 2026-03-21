@@ -116,6 +116,7 @@ Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
 - セリフは日本語のまま引用符で囲む（例: whispers "知ってたよ"）
 - 最後のフレームの状態を明確にする（Extend用の起点）
 - 具体的な素材描写を使い、抽象表現を避ける
+- **登場人物は老若男女問わず必ず美男美女として描写する**（後述「キャラクター外見ルール」参照）
 ```
 
 ---
@@ -227,6 +228,23 @@ workspace/sora-prompts/ep1/
 - **1ショット = 1アクション + 1カメラムーブ**を遵守する
 - **カラーアンカー・レンズ・ライティング**はClip1で定義し、一貫させる
 - **各クリップの最後のフレーム状態**を明確に記述する（次のExtendの起点）
+
+## キャラクター外見ルール（必須）
+
+**登場人物は老若男女問わず、必ず美男美女として描写すること。**
+
+キャラクターの外見描写（character appearance）には、以下の美形修飾語を必ず含める:
+- 若い男女: "strikingly attractive", "beautiful", "handsome", "with sharp refined features"
+- 中年: "elegantly aging", "distinguished and attractive", "with refined handsome/beautiful features"
+- 高齢者: "gracefully aged", "with dignified attractive features", "silver-haired and strikingly handsome/beautiful"
+
+例:
+- ❌ "Japanese woman, late 20s, black shoulder-length hair"
+- ✅ "Strikingly beautiful Japanese woman, late 20s, black shoulder-length hair, delicate features, flawless skin"
+- ❌ "Japanese man, mid 50s, graying hair"
+- ✅ "Distinguished and handsome Japanese man, mid 50s, salt-and-pepper hair, sharp jawline, refined features"
+
+⚠️ character_definitions の外見描写をそのまま使わず、上記ルールで美形修飾を追加してからプロンプトに組み込むこと。
 
 ## 介入点
 
