@@ -1,288 +1,234 @@
 ---
 name: step10-prepare-sora2-prompts
-description: DBからエピソードデータを読み込み、2フェーズ（通し生成→4分割）でSora2プロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
+description: DBからクリップ構成を読み込み、Sora 2のInitial生成+Extend×3用のプロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
 ---
 
-# Step10: 各話Sora2プロンプト生成（2フェーズ方式）
+# Step10: Sora 2プロンプト生成（Initial + Extend×3）
 
 ## 概要
 
-Step10は2フェーズで実行する:
-- **フェーズA**: 1話分の通しプロンプトを生成 → 人間レビュー
-- **フェーズB**: 承認された通しプロンプトを4クリップに分割 → 人間レビュー
+Step8で承認された4クリップ構成を元に、Sora 2に直接コピペできるプロンプトを生成する。
 
-この2段階により、セリフ/内容の断片化・重複を防ぐ。
+- **clip1.txt**: Initial生成用（完全なプロンプト）
+- **clip2.txt**: Extend用（Clip1から延長する指示）
+- **clip3.txt**: Extend用（Clip2から延長する指示）
+- **clip4.txt**: Extend用（Clip3から延長する指示）
 
 ## フロー
 
-### 共通: データ取得
+### 1. データ取得
 
-1. 対象 `generation_job_id` を確認する（`video_generation_status='episodes_ready'` のジョブから選択）:
-   ```sql
-   SELECT id, series_title, video_generation_status
-   FROM generation_jobs
-   WHERE video_generation_status='episodes_ready'
-   ORDER BY id DESC;
-   ```
-   - 1件のみの場合はそのまま使用する。
-   - 複数ある場合は**人間に選択させる**（自動選択しない）。
-
-2. `generated_videos` から全エピソードを取得する:
-   ```sql
-   SELECT episode_no, episode_title, episode_summary, emotion_target_per_ep,
-          episode_hook, cliffhanger_text, dialogue_motif_placement,
-          scenes_json, narration_script
-   FROM generated_videos
-   WHERE generation_job_id = {job_id}
-   ORDER BY episode_no;
-   ```
-
-3. `generation_jobs.prompt_text` から以下を取得する:
-   - `character_definitions`
-   - `location_definitions`
-   - `emotion_arc`
-   - `dialogue_motif`
-
----
-
-### フェーズA: 1話分の通しプロンプト生成
-
-4. 各エピソードについて順次、以下「フェーズA用プロンプト」に従い**1話分の通し映像プロンプト**を生成する。
-   - `episode_no > 1` の場合は直前話の `cliffhanger_text` と `narration_script` を参照する。
-   - この段階では**クリップ分割を一切意識しない**。1話分を通しで記述する。
-
-5. 通しプロンプトを以下のパスに保存する:
-   - `workspace/sora-prompts/ep{episode_no}/full.txt`
-   - ディレクトリが存在しない場合は作成する。
-   - 再生成時は上書き（バージョン管理不要）。
-
-6. 全話分の保存完了後、ファイル内容を人間に提示してレビュー依頼。
-   - 修正要望があれば対応する。特定話のみ再生成も可。
-   - **人間の承認を得てからフェーズBに進む。**
-
----
-
-### フェーズB: 4クリップへの分割
-
-7. 承認された通しプロンプト（`full.txt`）を入力として、以下「フェーズB用プロンプト」に従い4クリップに分割する。
-
-8. 各クリップを以下のパスに保存する:
-   - `workspace/sora-prompts/ep{episode_no}/clip1.txt`
-   - `workspace/sora-prompts/ep{episode_no}/clip2.txt`
-   - `workspace/sora-prompts/ep{episode_no}/clip3.txt`
-   - `workspace/sora-prompts/ep{episode_no}/clip4.txt`
-   - 再生成時は上書き（バージョン管理不要）。
-
-9. 全話分の保存完了後、ファイルパス一覧を人間に提示してレビュー依頼。
-
-10. 修正対応後、次ステップ（Step13b）へ。
-
----
-
-## フェーズA用プロンプト（通し生成）
-
+対象 `generation_job_id` を確認する:
+```sql
+SELECT id, series_title, video_generation_status
+FROM generation_jobs
+WHERE video_generation_status='episodes_ready'
+ORDER BY id DESC;
 ```
-以下の情報を元に、このエピソード1話分の完全なSora 2映像プロンプトを「通し」で生成してください。
-⚠️ この段階ではクリップ分割を一切意識しないこと。1話分をひとつの連続した映像として記述する。
+- 1件のみの場合はそのまま使用。複数ある場合は**人間に選択させる**。
 
-【シリーズ情報】
-- emotion_arc: {emotion_arc}
-- character_definitions: {character_definitions}
-- location_definitions: {location_definitions}
-
-【今話の情報】
-- エピソード{episode_no}「{episode_title}」
-- あらすじ: {episode_summary}
-- 感情ターゲット: {emotion_target_per_ep}
-- episode_hook（冒頭フック）: {episode_hook}
-- cliffhanger_text（次話への引き）: {cliffhanger_text}
-- scenes_json: {scenes_json}
-- narration_script: {narration_script}
-
-【前話の情報】（episode_no > 1 の場合のみ）
-- 前話cliffhanger: {前話cliffhanger_text}
-
-【通しプロンプト生成ルール】
-
-1. scenes_json全体のシーンを通して、1話分のストーリーを一貫した映像プロンプトとして記述する。
-2. 以下の構成で出力する:
-
---- Episode {episode_no}「{episode_title}」 通しプロンプト ---
-
-{character_definitionsのappearance}. {location_definitionsのappearance}.
-
-Prose:
-{scenes_json全体のscene_descを踏まえた、1話分の状況・感情・ライティングの流れを連続的に記述。
- 冒頭からラストまで、シーンの展開順に自然な流れで書く。}
-
-Cinematography:
-{1話を通したカメラワークの流れ。冒頭のフレーミングから、展開に応じたカメラムーブの変化、
- クライマックスでの演出、ラストカットまでを連続的に記述。}
-Mood: {emotion_target_per_epに基づく1話全体のトーン変化}
-
-Actions:
-- {scene_descから導いた具体的アクションビートを、ストーリー順に列挙}
-- {次のビート}
-- {…全シーン分を漏れなく列挙する}
-
-Narration Script:
-{narration_scriptを1話通しで記述。シーンの流れに沿った自然なナレーション。}
-
-Background Sound:
-{1話を通したBGM・環境音の流れ。シーン展開に合わせた変化を記述。}
-
-[QUALITY & TEXTURE]
-Photorealistic, shot on 35mm film with shallow depth of field,
-cinematic color grading, {1話全体のライティングスタイル}
-
-3. ⚠️ Dialogueブロックは生成しない。セリフ・台詞・会話は一切含めない。映像・音・動きのみで表現すること。
-4. episode_hookを冒頭Proseの最初に反映する。「3秒で状況が伝わる感情直球」の掴みを映像で体現すること。
-5. episode_no > 1の場合: 前話cliffhangerへの回答・解決を冒頭で描写する。
-6. 非最終話: cliffhanger_textをラストのActionsの締めに「映像描写として」反映する。「答えを出さずに終わる」こと。
-7. 最終話: cliffhanger_textをエンディングの映像演出として使う。感情の解放・余韻で締める。
-8. プロンプトに秒数を含めない（Sora 2のUI側で指定）。
-9. Actions は全シーンのscene_descを漏れなくカバーすること。省略しない。
+`generated_videos` からクリップデータを取得する:
+```sql
+SELECT episode_no, episode_title, episode_summary, emotion_target_per_ep,
+       scenes_json, story_beats
+FROM generated_videos
+WHERE generation_job_id = {job_id}
+ORDER BY episode_no;
 ```
 
+`generation_jobs.prompt_text` から以下を取得する:
+- `character_definitions`
+- `location_definitions`
+- `emotion_arc`
+
+### 2. プロンプト生成
+
+各クリップについて、以下のプロンプトテンプレートに従いSora 2用プロンプトを生成する。
+
+### 3. ファイル保存
+
+- `workspace/sora-prompts/ep1/clip1.txt`
+- `workspace/sora-prompts/ep1/clip2.txt`
+- `workspace/sora-prompts/ep1/clip3.txt`
+- `workspace/sora-prompts/ep1/clip4.txt`
+
+ディレクトリが存在しない場合は作成する。再生成時は上書き。
+
+### 4. 人間レビュー
+
+全ファイルの内容を人間に提示してレビュー依頼。修正要望があれば対応する。
+
 ---
 
-## フェーズB用プロンプト（4クリップ分割）
+## Clip1 プロンプトテンプレート（Initial生成用）
+
+Clip1はSora 2で新規生成するため、世界観・キャラクター・ロケーションを含む完全なプロンプトが必要。
 
 ```
-以下の「通しプロンプト」を4クリップに分割してください。
-通しプロンプトの内容を忠実に分割すること。新たな内容の追加や、既存内容の改変はしない。
+以下の情報を元に、Sora 2のInitial生成用プロンプト（15秒）を生成してください。
+⚠️ Sora 2にそのままコピペして使えるプロンプトを出力すること。
+⚠️ セリフは短く、キャラクターの発話として自然に組み込むこと。
 
-【通しプロンプト】
-{full.txtの内容}
+【クリップ情報】
+- Clip1（起 / 0-15秒）: {clip1のbeat_summary}
+- 感情ターゲット: {clip1のemotion_target}
+- セリフ: {clip1のdialogue}
+- シーン: {clip1のscenes}
+- ストーリービート: {clip1のstory_beat}
+- 次クリップへのつなぎ: {clip1のtransition_to_next}
 
-【scenes_json】
-{scenes_json}
+【キャラクター定義】{character_definitions}
+【ロケーション定義】{location_definitions}
 
-【シリーズ情報】
-- character_definitions: {character_definitions}
-- location_definitions: {location_definitions}
+【Sora 2 Initial プロンプトの形式】
 
-【今話の情報】
-- エピソード{episode_no}「{episode_title}」
-- episode_hook: {episode_hook}
-- cliffhanger_text: {cliffhanger_text}
+以下の形式で出力すること:
 
-【4クリップ分割ルール】
+---
 
-1. scenes_jsonのシーンを均等に4グループに分割する。端数は後半クリップに寄せる。
-   - 例: 5シーン → [scene1,2] / [scene3] / [scene4] / [scene5]
-   - 例: 6シーン → [scene1,2] / [scene3,4] / [scene5] / [scene6]
-   - 例: 8シーン → [scene1,2] / [scene3,4] / [scene5,6] / [scene7,8]
-
-2. 分割前に、各クリップへのシーン割り当てを以下の形式で必ず明示すること:
-   例）「Clip1: scene1-2、Clip2: scene3-4、Clip3: scene5-6、Clip4: scene7-8」
-
-3. 通しプロンプトの該当部分を各クリップに割り当てる:
-   - Prose: 該当シーン範囲の状況・感情描写を抜き出す
-   - Cinematography: 該当シーン範囲のカメラワークを抜き出す
-   - Actions: 該当シーン範囲のアクションビートを抜き出す
-   - Narration Script: 該当シーン範囲のナレーションを抜き出す
-   - Background Sound: 該当シーン範囲のBGM・環境音を抜き出す
-
-4. ⚠️ 内容の重複禁止: 同じアクション・ナレーション・描写が複数クリップに現れないこと。
-   通しプロンプトの各部分は必ず1つのクリップにのみ割り当てる。
-
-5. 各クリップの冒頭にcharacter/location appearanceを付与する。
-
-6. Clip 1の必須制約:
-   - episode_hookをClip 1のActionsの冒頭に必ず反映する。
-   - episode_no > 1: 前話cliffhangerへの回答・解決をClip 1の前半のActionsで描写する。
-
-7. Clip 4の必須制約:
-   - 非最終話: cliffhanger_textをClip 4のActionsの締めに「映像描写として」反映する。「答えを出さずに終わる」こと。
-   - 最終話: cliffhanger_textをエンディングの映像演出として使う。感情の解放・余韻で締める。ActionsはWide/Pull-backで余韻を持たせる。
-
-8. プロンプトに秒数を含めない。
-9. Dialogueブロックは生成しない。セリフ・台詞・会話は一切含めない。
-
-【各クリップの出力形式】
-
---- Clip {n}/4  ep{episode_no}「{episode_title}」---
+[VISUAL IDENTITY]
+Color palette: {3-5色のカラーアンカー。全4クリップで統一する}
+Lens: {レンズ指定。例: "35mm prime, f/2.0, slight grain"}
+Base lighting: {基本ライティング}
 
 {character appearance}. {location appearance}.
-{このクリップに割り当てたProseの該当部分}
 
-Cinematography:
-Camera shot: {該当部分のカメラワーク}
-Mood: {該当部分のムード}
+{物語の状況・映像描写を具体的に記述。
+ 冒頭3秒のフック → 世界観の確立 → キャラクター登場 → 状況提示。
+ 具体的な素材・物理描写を使う（"wet asphalt" "steam rising from coffee cup" 等）。}
 
-Actions:
-- {該当部分のアクションビート}
-- {…}
+{キャラクターのセリフ・発話を映像アクションの一部として記述。
+ 例: "She whispers '嘘でしょ' while staring at the phone screen, her hand trembling slightly."}
 
-Narration Script:
-{該当部分のナレーション}
+Camera: {カメラワーク。1ショット=1アクション+1カメラムーブ}
 
-Background Sound:
-{該当部分のBGM・環境音}
+{最後のフレームの状態を明確に記述する（Extend時の起点になるため）。
+ 例: "The scene ends with him frozen mid-reach, his hand hovering over the letter on the table."}
 
-[QUALITY & TEXTURE]
-Photorealistic, shot on 35mm film with shallow depth of field,
-cinematic color grading, {該当部分のライティングスタイル}
+[QUALITY]
+Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
+
+---
+
+⚠️ ルール:
+- 秒数はプロンプトに含めない（Sora 2 UIで15秒を指定する）
+- 英語で記述する（Sora 2は英語プロンプトの精度が最も高い）
+- セリフは日本語のまま引用符で囲む（例: whispers "知ってたよ"）
+- 最後のフレームの状態を明確にする（Extend用の起点）
+- 具体的な素材描写を使い、抽象表現を避ける
+```
+
+---
+
+## Clip2-4 プロンプトテンプレート（Extend用）
+
+Clip2以降はSora 2のExtend機能で生成する。前のクリップの最後のフレームから続くため、世界観の再説明は不要。展開の指示のみ。
+
+```
+以下の情報を元に、Sora 2のExtend用プロンプト（15秒延長）を生成してください。
+⚠️ Extendは前のクリップの最後のフレームから続きを生成する。新たに世界観やキャラクターを説明し直す必要はない。
+⚠️ 「次に何が起きるか」の展開指示を簡潔に記述する。
+
+【クリップ情報】
+- Clip{N}（{beat} / {秒数}）: {beat_summary}
+- 感情ターゲット: {emotion_target}
+- セリフ: {dialogue}
+- シーン: {scenes}
+- ストーリービート: {story_beat}
+- 前クリップからの状態: {前クリップのtransition_to_next}
+- 次クリップへのつなぎ: {transition_to_next}（Clip4の場合はエンディング演出）
+
+【Sora 2 Extend プロンプトの形式】
+
+以下の形式で出力すること（簡潔に。世界観・キャラ説明の繰り返し不要）:
+
+---
+
+{前のクリップの最後の状態から、次に何が起きるかを具体的に記述。
+ 映像アクション + キャラクターの動き + 感情の変化を簡潔に。
+ セリフがある場合はアクションの一部として組み込む。}
+
+---
+
+例（Clip2 / 承）:
+"He slowly picks up the letter from the table, his expression shifting from surprise to confusion.
+She turns away, arms crossed, whispering 'もう関係ないでしょ'.
+The warm café lighting gradually dims as clouds pass outside the window.
+He unfolds the letter, and his eyes widen — camera slowly pushes in on his face."
+
+例（Clip3 / 転）:
+"He stands up abruptly, the chair scraping against the floor.
+He holds up the letter and says '全部知ってる' — his voice steady but his hands trembling.
+She spins around, shock on her face, tears forming.
+Quick cut to close-up of the letter's content — a photograph falls out onto the table."
+
+例（Clip4 / 結）:
+"She picks up the photograph — it shows them together, smiling, from years ago.
+Her tears fall onto the photo. She looks up at him and whispers 'ごめんね'.
+He reaches across the table and gently takes her hand.
+Camera slowly pulls back through the café window — warm golden light returns.
+Wide shot of the café exterior at sunset, the two silhouettes visible through the glass."
+
+⚠️ ルール:
+- 秒数はプロンプトに含めない（Sora 2 UIで15秒を指定する）
+- 英語で記述する
+- セリフは日本語のまま引用符で囲む
+- Clip4: 最後は余韻のある映像で締める（Wide shot、自然光、静かなエンディング）
+- Extend用プロンプトは簡潔に（世界観・キャラ説明の繰り返し不要）
+- 前クリップからの自然な連続性を保つ
+- カメラワークの指示も含める
 ```
 
 ---
 
 ## 保存ファイル構成
 
-### フェーズA出力: 通しプロンプト
-- `workspace/sora-prompts/ep{episode_no}/full.txt`
-
-### フェーズB出力: クリップ別プロンプト
-- `workspace/sora-prompts/ep{episode_no}/clip1.txt` 〜 `clip4.txt`
-
-各クリップファイルはSora 2のUIにそのままコピペできる形式。
+```
+workspace/sora-prompts/
+  ep1/
+    clip1.txt    ← Initial生成用（完全プロンプト）
+    clip2.txt    ← Extend用（承の展開指示）
+    clip3.txt    ← Extend用（転の展開指示）
+    clip4.txt    ← Extend用（結の展開指示）
+```
 
 ---
 
 ## 人間への提示メッセージ
 
-**フェーズA完了後:**
 ```
-=== Step10 フェーズA完了 ― 通しプロンプト生成完了 ===
+=== Step10 完了 ― Sora 2 プロンプト生成完了 ===
 
-📁 sora-prompts/
-   ep1/full.txt
-   ep2/full.txt
-   ...
-   ep{N}/full.txt
+workspace/sora-prompts/ep1/
+  clip1.txt  ← Sora 2にコピペ → 15秒でInitial生成
+  clip2.txt  ← Clip1動画をExtend → 15秒延長
+  clip3.txt  ← Clip2動画をExtend → 15秒延長
+  clip4.txt  ← Clip3動画をExtend → 15秒延長
 
-各エピソードの通しプロンプトを確認してください。
-修正があれば指示してください。問題なければ「承認」と伝えてください。
-承認後、フェーズB（4クリップ分割）に進みます。
-```
+【Sora 2での操作手順】
+1. clip1.txt をSora 2にコピペ → Duration: 15s で生成
+2. 生成されたClip1動画を選択 → Extend → clip2.txt を入力 → 15s
+3. Clip2まで延長された動画を選択 → Extend → clip3.txt を入力 → 15s
+4. Clip3まで延長された動画を選択 → Extend → clip4.txt を入力 → 15s
+5. 合計60秒の完成動画をダウンロード
 
-**フェーズB完了後:**
-```
-=== Step10 フェーズB完了 ― 4クリップ分割完了 ===
-
-📁 sora-prompts/
-   ep1/full.txt, clip1.txt〜clip4.txt
-   ep2/full.txt, clip1.txt〜clip4.txt
-   ...
-   ep{N}/full.txt, clip1.txt〜clip4.txt
-
-各ファイルをSora 2のUIにコピペして生成してください。
-生成後のファイル名: ep{N}_clip1.mp4〜ep{N}_clip4.mp4
-
-次ステップ: Step13b（Remotion合成）へ進んでください。
+各プロンプトの内容を確認してください。
+修正があれば指示してください。問題なければ上記手順でSora 2で生成してください。
 ```
 
 ## プロンプト生成のガイドライン
 
-- **秒数はプロンプトに含めない**（Sora 2ではUIで指定）
-- **セリフ・Dialogueブロックは生成しない**（映像・音・動きのみで表現する）
-- Cinematographyは `Camera shot`（フレーミング + 1ムーブを1文）+ `Mood` のみ。Lightingは Prose に統合する
-- Prose はcharacter_definitions・location_definitionsのappearanceを必ず参照する
-- Actionsはscene_descから具体的な映像アクションビートとして列挙する
+- **英語で記述する**（Sora 2は英語プロンプトの精度が最も高い）
+- **セリフは日本語のまま引用符で囲む**（例: whispers "知ってたよ"）
+- **秒数はプロンプトに含めない**（Sora 2のUI側で15秒を指定）
+- **Clip1は完全なプロンプト**（キャラ・ロケーション・映像スタイルを含む）
+- **Clip2-4は展開指示のみ**（Extendなので世界観の再説明不要）
+- **具体的な素材描写**を使い、抽象表現を避ける
+- **1ショット = 1アクション + 1カメラムーブ**を遵守する
+- **カラーアンカー・レンズ・ライティング**はClip1で定義し、一貫させる
+- **各クリップの最後のフレーム状態**を明確に記述する（次のExtendの起点）
 
 ## 介入点
 
-- フェーズA: 通しプロンプトの修正要望を受け付ける。特定話のみ再生成も可。
-- フェーズB: クリップ分割の修正要望を受け付ける。特定話の特定クリップのみ再生成も可。
-- 確定後、次ステップ（step13b-prepare-remotion）へ渡す。
+- プロンプトの修正要望を受け付ける。特定クリップのみ再生成も可。
+- 確定後、人間がSora 2で動画生成を実行する。

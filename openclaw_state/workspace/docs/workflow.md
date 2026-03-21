@@ -1,6 +1,13 @@
-# ワークフロー概要 — AIショートドラマ制作
+# ワークフロー概要 — 1話完結AIショートドラマ制作
 
-## 全体フロー（13ステップ）
+## 設計原則
+
+- **1話完結**: 60秒の起承転結ある物語
+- **セリフ駆動**: 短いセリフで物語を進め、映像演出で感情を増幅
+- **Sora 2 Extend方式**: 15秒Initial生成 + Extend×3 = 合計60秒
+- **プロンプト出力**: 人間がSora 2にコピペして動画生成
+
+## 全体フロー（10ステップ）
 
 ```
 [フェーズ1: トレンド調査・状況設計]
@@ -8,37 +15,44 @@
   Step 2: イベント抽出（トレンド → ドラマ化できるイベントへ変換）
   Step 3: 状況生成（舞台・シチュエーション確定）
   Step 4: story_type / hook_pattern 選定
-  Step 5: DB記録 → generation_jobs INSERT
+  Step 5: DB記録 → generation_jobs INSERT（episode_count=1, duration_sec=60）
 
-[フェーズ2: シナリオ設計]
-  Step 6: 全体シナリオ生成（複数案）（Claude Code / Codex）
-  ★ 人間レビュー①: シナリオ案比較・選択・承認
-  Step 7: 承認シナリオをDBに記録（prompt_review_status = approved）
+[フェーズ2: 台本設計]
+  Step 6: 1話完結の台本生成（起承転結 + セリフ候補）（Claude Code / Codex）
+  ★ 人間レビュー: 台本案比較・選択・承認
+  Step 7: 承認台本をDBに記録（prompt_review_status = approved）
 
-[フェーズ3: エピソード分割]
-  Step 8: エピソード分割 → 各話プロンプト生成（Claude Code）
+[フェーズ3: クリップ構成]
+  Step 8: 4クリップ構成生成（起承転結 × 15秒。セリフ・映像演出を具体化）（Claude Code）
+  ★ 人間レビュー: クリップ構成確認・承認
   Step 9: generated_videos レコード作成
 
-[フェーズ4: 動画生成]（将来実装）
-  Step 10: 各話プロンプトで動画生成（外部API）
-  ★ 人間レビュー②: 動画確認・承認
-
-[フェーズ5: 投稿・実績]（将来実装）
-  Step 11: 動画投稿（YouTube / TikTok等）
-  Step 12: 投稿実績記録（views / likes / comments / shares）
-  Step 13: 実績分析・次回への改善点抽出
+[フェーズ4: Sora 2プロンプト生成]
+  Step 10: Sora 2用プロンプト生成（Initial + Extend×3）
+  ★ 人間レビュー: プロンプト確認
+  → 人間がSora 2で動画生成（clip1.txt → Extend×3）
 ```
+
+## 起承転結 × Extend の構成
+
+| クリップ | 秒数 | 起承転結 | Sora2操作 |
+|---------|------|---------|-----------|
+| Clip1 | 0-15s | 起（Setup） | Initial生成 |
+| Clip2 | 15-30s | 承（Development） | Extend |
+| Clip3 | 30-45s | 転（Twist） | Extend |
+| Clip4 | 45-60s | 結（Resolution） | Extend |
 
 ## 詳細ドキュメント
 
 | フェーズ | ファイル |
 |---------|---------|
 | Step 1-5: トレンド〜状況 | docs/step1-trend-to-situation.md |
-| Step 6-9: シナリオ〜エピソード | docs/step2-story-to-scenario.md |
-| Step 10-13: 動画〜投稿（将来） | 未実装 |
+| Step 6-9: 台本〜クリップ構成 | docs/step2-story-to-scenario.md |
+| ワークフロー全体 | skills/sora2-drama-workflow/SKILL.md |
 
 ## 重要ルール
 
-- **人間レビュー①②の承認なしに次フェーズへ進まない**
+- **人間レビュー承認なしに次フェーズへ進まない**
 - 各ステップの結果は必ずDBに記録する
+- セリフは短く（5〜10文字）。Sora 2で反映できる長さにする
 - エラーや不明点は人間に報告・確認を求める

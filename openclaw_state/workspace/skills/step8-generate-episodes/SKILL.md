@@ -1,9 +1,9 @@
 ---
 name: step8-generate-episodes
-description: 承認済みジョブからepisode_count分の各話要素を映像中心で生成し、Step6のscript_materialを元にセリフ/台本も生成する。人間承認後にStep9（DB INSERT）へ渡す。Use when Step8（エピソード構造生成）を実行する時。
+description: 承認済み台本から1話完結の4クリップ構成（起承転結 × 15秒）を生成し、セリフ・映像演出を具体化する。人間承認後にStep9（DB INSERT）へ渡す。Use when Step8（クリップ構成生成）を実行する時。
 ---
 
-# Step8: エピソード構造 + セリフ/台本生成
+# Step8: 4クリップ構成生成（起承転結 × 15秒）
 
 ## 実行方法（必須）
 
@@ -13,162 +13,133 @@ description: 承認済みジョブからepisode_count分の各話要素を映像
 claude --print "step8-generate-episodes スキルを実行してください。job_id={job_id}"
 ```
 
-⚠️ openclawが直接エピソード生成を行わないこと。必ず `claude` コマンドに委譲する。
+⚠️ openclawが直接生成を行わないこと。必ず `claude` コマンドに委譲する。
 
 ## 手順
 
-1. 対象 `generation_job_id` を確認する（ワークフローから引き継ぐか、以下で確認）:
+1. 対象 `generation_job_id` を確認する:
    ```sql
    SELECT id, series_title, prompt_review_status
    FROM generation_jobs
    WHERE prompt_review_status='approved'
    ORDER BY id DESC;
    ```
-   - 1件のみの場合はそのまま使用する。
-   - 複数ある場合は**人間に選択させる**（自動選択しない）。
-2. 指定された `job_id` のジョブを取得して `episode_count` 分の各話要素を生成する。**Step6で生成された `episodes[]`（`script_material` 含む）を必ず参照**し、セリフ/台本も生成する。
-3. 全話の内容を人間に提示する。
-4. 人間の修正・承認を待つ。
-5. 承認後、次ステップ（Step9/DB INSERT）へ渡す。
-
-## 各話設計の必須要件
-
-### 映像要素
-- `visual_hook`: 冒頭3秒の映像描写（Step6の `episode_hook` を具体化。構図・ライティング・アクション）
-- `cliffhanger_visual`: 映像で表現する引き（Step6の `cliffhanger` を具体化。映像的な終わり方）
-- `emotion_target_per_ep`: この話で引き出す感情（Step6の `emotion_target` を引き継ぐ）
-- `key_action`: この話の核となる1アクション（映像で見せる決定的瞬間）
-
-### セリフ/台本要素（Step6のscript_materialを元に生成）
-- `dialogue_lines`: セリフ一覧（各シーンに紐づく）
-- `narration_script`: ナレーション台本（必要な場合のみ）
-
-⚠️ **廃止された要素**（生成しない）:
-- ~~dialogue_motif_placement~~（旧セリフベース概念）
-- ~~image_prompt~~（Step10のSora 2プロンプトに統合）
-- ~~video_motion_prompt~~（同上）
+   - 1件のみの場合はそのまま使用。複数ある場合は**人間に選択させる**。
+2. 指定された `job_id` のジョブから承認済み台本（`prompt_text`）を取得。
+3. Step6の `clip_materials` を元に、4クリップの詳細構成を生成する。
+4. 全クリップの内容を人間に提示する。
+5. 人間の修正・承認を待つ。
+6. 承認後、次ステップ（Step9/DB INSERT）へ渡す。
 
 ## Claudeへの依頼プロンプト
 
 ```
-承認されたシリーズ「{series_title}」を{episode_count}話に分割し、
-各話の詳細を**映像中心 + セリフ/台本**で生成してください。
-⚠️ 映像が主軸。セリフは映像を補強し、感情を増幅させる役割。
-⚠️ Step6で設計されたscript_materialを必ず活用し、バズる台本を生成すること。
+承認された台本「{title}」を4クリップ（起承転結 × 各15秒）の詳細構成に落とし込んでください。
+⚠️ Sora 2のExtend方式で生成するため、各クリップは前のクリップから自然に続く構成にすること。
+⚠️ セリフは短く（5〜10文字）。長いセリフはSora 2で正確に反映されない。
 
-【シリーズ概要】{series_summary}
-【全体の流れ】{series_outline}
-【感情アーク（4ビート）】{emotion_arc}
-【各話の長さ】{duration_sec}秒
-⚠️ 各話の秒数に見合ったセリフ量・シーン数にすること。
+【台本概要】{summary}
+【起承転結の流れ】{story_outline}
+【感情アーク】{emotion_arc}
 
-【Step6の各話設計（script_material）】
-{episodes_json}
-※ 上記の各話 episode_hook / emotion_target / cliffhanger / script_material を
-  そのまま活用し、具体的なシーン・セリフに落とし込むこと。
+【Step6のクリップ素材（clip_materials）】
+{clip_materials_json}
+※ 上記の各クリップの dialogue_candidates / visual_direction / key_moment を
+  活用し、具体的なシーン・セリフに落とし込むこと。
 
-【各話設計の必須要件 — 映像】
-- visual_hookは「冒頭3秒で目を引く映像」を具体的に記述すること（構図・ライティング・アクション）
-  → Step6の episode_hook を映像仕様に具体化する
-- cliffhanger_visualは「映像で表現する引き」にすること（言語的でなく映像的）
-  → Step6の cliffhanger を映像仕様に具体化する
-- emotion_target_per_ep（各話の狙い感情）→ Step6の emotion_target を引き継ぐ
-- key_action（その話の核となる1アクション）を映像で見せる決定的瞬間として記述すること
-  → Step6の turning_point を映像化する
+【キャラクター定義】
+{character_definitions}
 
-【各話設計の必須要件 — セリフ/台本】
-Step6のscript_materialを元に、バズる台本を生成してください。
+【ロケーション定義】
+{location_definitions}
 
-セリフ生成のルール:
-1. core_tension を軸にドラマを構築する
-2. key_phrases をベースにセリフを磨く（そのまま使ってもアレンジしてもよい）
-3. dialogue_direction に従ったセリフの演出をする
-4. emotional_contrast を活かした感情表現にする
-5. unspoken_subtext は「心の声（inner_voice）」として設計する（ナレーション風ボイスオーバーで表現）
-6. viral_element をセリフや展開に織り込む
+【Sora 2 Extend方式の制約（必須）】
+
+Extendは前のクリップの最後のフレームから続きの映像を生成する。
+このため:
+- Clip1の最後のフレーム → Clip2の冒頭に自然につながること
+- Clip2の最後のフレーム → Clip3の冒頭に自然につながること
+- Clip3の最後のフレーム → Clip4の冒頭に自然につながること
+- 急なロケーション変更やキャラクターの入れ替えは避ける
+- シーン転換が必要な場合は、クリップの前半で転換し後半で新シーンを確立する
+
+【セリフのルール（Sora 2制約）】
+
+1. 1セリフ = 5〜10文字（日本語）/ 3〜8 words（英語）
+2. 1クリップあたりセリフ1〜2個が上限
+3. 全4クリップで合計4〜6個のセリフ
+4. セリフは物語の核心を突く短い言葉にする
+5. 沈黙・間も演出。全部セリフで埋めない
+6. Step6の dialogue_candidates をベースにセリフを確定する（そのまま使ってもアレンジしてもよい）
 
 セリフの品質基準:
-- 短く、リアルな口語体（書き言葉禁止）
+- 短く、リアルな口語体
 - 一言で感情が伝わるインパクト重視
 - 「言い過ぎない」こと。余白を残す
 - SNSでスクショされるような印象的なフレーズを最低1つ含める
-- 本音と建前のギャップがある場合、両方を設計する
-- ⚠️ セリフ・ナレーションはすべて「ひらがな」で記述すること（AIが漢字を誤読するため）
-- 心の声（inner_voice）は短く、キャラの内面を端的に表現する（例: 「…うそでしょ」「なんで、わたしが」）
-- ⚠️ 字幕（テロップ・サブタイトル）は絶対に生成しない・使用しない。セリフや心の声はすべて音声のみで表現する
 
-【キャラクター定義（character_definitions）】
-シリーズに登場するキャラクターを定義してください。
-Sora 2で毎シーン同じ見た目を再現するため、外見を固定の英語描写で定義します。
+【冒頭3秒フック（Clip1 必須・最重要）】
 
-各キャラクター:
-- name: キャラクター名（日本語）
-- role: 役割（例: 主人公, 同僚, 上司）
-- appearance: 外見の固定描写（英語・Sora 2用。髪色/髪型/目の色/服装スタイルを含む）
-  例: "Japanese woman in her late 20s, black shoulder-length hair, dark eyes, wearing a white blouse"
+Clip1は必ず「3秒フック」から始めること。スクロールを止められなければ全て無駄になる。
 
-【ロケーション定義（location_definitions）】
-シリーズに登場する場所を定義してください。
-シーンが変わっても同じ場所なら見た目が変わらないよう、外見を固定の英語描写で定義します。
+フック手法:
+- 衝撃的な短いセリフから始める（例: 「…嘘でしょ」と呟く顔のクローズアップ）
+- 異常な状況の映像から始める（例: テーブルに叩きつけられた指輪）
+- 結果から見せる（例: 泣いている顔→なぜ泣いているかは後で明かす）
 
-各ロケーション:
-- name: 場所名（日本語）
-- appearance: 場所の固定描写（英語・Sora 2用。部屋の構造/照明/背景要素を含む）
-  例: "modern Japanese office, large windows on the left, natural daylight, open floor plan, white desks"
+❌ やってはいけない:
+- ゆっくりしたフェードイン
+- 説明的な導入
+- 「ある日」「それは」などの平凡な語り出し
 
-【シーン分割（scenes）— 映像描写 + セリフ】
-各話ごとにシーン配列と story_beats を生成してください。
-⚠️ シーンは「映像として何が見えるか・何が動くか」を主軸に記述し、セリフを補助的に配置する。
+【各クリップの出力形式】
 
-各シーン:
-- scene_no: シーン番号
-- scene_desc: 映像として何が見えるか・何が起こるかの具体的記述（日本語）
-  ※ 感情や内面の説明は書かない。代わりにcamera_suggestion/lighting_moodで表現する
-- characters_in_scene: このシーンに登場するキャラクター名リスト
-- location_name: このシーンの場所名（location_definitions のいずれかと一致させる）
-- camera_suggestion: カメラワーク提案（英語。例: "Wide establishing → slow push-in"）
-- lighting_mood: ライティングの雰囲気（英語。例: "cold blue, single streetlight"）
-- key_action: このシーンの具体的な1アクション（例: "手が震える", "振り返る", "封筒を握りしめる"）
-- bgm_mood: BGMムード（英語1〜3語。例: "tension, ambient drone"）
-- dialogue: このシーンのセリフ配列（ない場合は空配列）。各セリフ:
-  - character: 発話キャラクター名
-  - line: セリフ本文（短く、口語体）
-  - direction: 演技指示（例: "小声で", "目を逸らしながら", "間を置いて"）
-  - inner_voice: このセリフの裏にある本音（ナレーション風ボイスオーバーとして映像で使用。ひらがなで記述）
+各クリップ（clip_no: 1〜4）ごとに以下を生成してください:
 
-⚠️ 以下は生成しない:
-- image_prompt（Step10のSora 2プロンプトに統合）
-- video_motion_prompt（同上）
-- duration_sec（シーン単位の秒数はStep10で決定）
+- clip_no: クリップ番号（1〜4）
+- beat: 起/承/転/結
+- clip_title: このクリップの小見出し（例: 「沈黙の食卓」「隠された手紙」）
+- emotion_target: このクリップの狙い感情
+- scenes: シーン配列（1クリップあたり1〜2シーン）。各シーン:
+  - scene_no: シーン番号
+  - scene_desc: 映像として何が見えるか・何が起こるかの具体的記述
+  - characters_in_scene: 登場キャラクター名リスト
+  - location_name: 場所名（location_definitions のいずれかと一致）
+  - camera_suggestion: カメラワーク（英語。例: "Close-up → slow pull-back"）
+  - lighting_mood: ライティング（英語。例: "warm golden hour, soft shadows"）
+  - key_action: このシーンの決定的アクション（例: "手紙を握りしめる"）
+  - bgm_mood: BGMムード（英語1〜3語）
+  - dialogue: セリフ配列（0〜2個）。各セリフ:
+    - character: 発話キャラクター名
+    - line: セリフ本文（5〜10文字の短いセリフ）
+    - direction: 演技指示（例: "小声で", "目を逸らしながら"）
+- story_beat: このクリップのストーリービート（映像+セリフで何を伝えるかの1〜2行ガイド）
+- transition_to_next: 次のクリップへのつなぎ方（最後のフレームの状態を記述。Extend用）
+  ※ clip_no=4 の場合は「エンディング演出」を記述
 
-【ストーリービート（story_beats）】
-各話のストーリービート一覧を生成してください。映像+セリフで何を伝えるかのガイドです。
-各ビートで「映像として何を見せるか」「セリフがある場合はどんな一言か」を簡潔に列挙する。
-例:
-  1. 暗い部屋で携帯の光だけが女性の顔を照らす（無言）
-  2. 男性が背を向けたまま「…知ってたよ」と呟く
-  3. テーブルの上の指輪にカメラがゆっくりズーム（沈黙）
+【全体レベルの出力】
 
-各話ごとに以下を生成:
-- episode_no: 話数（1〜N）
-- episode_title: 話タイトル
-- episode_summary: あらすじ（100字程度・映像+感情を中心に記述）
-- emotion_target_per_ep: この話で引き出す感情（Step6のemotion_targetを引き継ぐ）
-- visual_hook: この話の冒頭映像描写（Step6のepisode_hookを映像仕様に具体化）
-- cliffhanger_visual: 映像で表現する引き（非最終話）/ エンディング映像演出（最終話）
-- key_action: この話の核となる1アクション
-- character_definitions: シリーズ共通キャラクター定義（JSON配列、第1話のみ出力・他話は省略可）
-- location_definitions: シリーズ共通ロケーション定義（JSON配列、第1話のみ出力・他話は省略可）
-- scenes: シーン配列（JSON配列。dialogue含む）
-- story_beats: ストーリービート一覧（映像+セリフで何を伝えるかのガイド）
+- episode_no: 1（1話完結）
+- episode_title: 作品タイトル
+- episode_summary: あらすじ（100字程度）
+- emotion_arc: 感情アーク（Step6から引き継ぎ）
+- character_definitions: キャラクター定義（Step6から引き継ぎ）
+- location_definitions: ロケーション定義（Step6から引き継ぎ）
+- clips: 4クリップの配列（上記形式）
+- story_beats: 全体のストーリービート一覧
+  例:
+  1. 【起 0-15s】暗い食卓、女性が「…知ってたの？」と呟く → 男性の手が止まる
+  2. 【承 15-30s】回想：二人が笑い合う写真 → 現在に戻り沈黙
+  3. 【転 30-45s】女性がテーブルを叩き「もう終わりにしよう」→ 男性が封筒を差し出す
+  4. 【結 45-60s】封筒の中身（手紙）を読む女性の涙 → 二人の手が重なる → 窓の外の夕焼け
 ```
 
 ## 介入点
 
-- 各話内容・セリフの修正を受け付ける。
-- 確定後、次ステップ（step9-insert-videos）へ渡す。
+- クリップ構成の修正・承認を受け付ける。
+- セリフの変更、シーンの追加・削除に対応する。
+- 承認後、次ステップ（step9-insert-videos）へ渡す。
 
 ## 出力
 
-- 確定済みエピソード一覧（`episode_count` 件）
-- 各話に `episode_title` / `episode_summary` / `emotion_target_per_ep` / `visual_hook` / `cliffhanger_visual` / `key_action` / `character_definitions` / `location_definitions` / `scenes`（`dialogue` 含む） / `story_beats` を含む
+- 承認済みクリップ構成（`episode_title` / `episode_summary` / `emotion_arc` / `character_definitions` / `location_definitions` / `clips[]` / `story_beats`）
