@@ -7,7 +7,7 @@
 - **Sora 2 Extend方式**: 15秒Initial生成 + Extend×3 = 合計60秒
 - **プロンプト出力**: 人間がSora 2にコピペして動画生成
 
-## 全体フロー（11ステップ）
+## 全体フロー（12ステップ）
 
 ```
 [フェーズ1: トレンド調査・状況設計]
@@ -32,6 +32,10 @@
   ★ 人間レビュー: プロンプト確認
   Step 11: Sora 2 自動動画生成（CDPブラウザ操作）
     → Initial生成 + Extend×(clip数-1) + ダウンロード + DB更新
+
+[フェーズ5: 後処理]
+  Step 12: ウォーターマーク削除（Sora2WatermarkRemover）
+    → AI inpainting でSora 2ロゴを除去 + DB更新
 ```
 
 ## 起承転結 × Extend の構成
@@ -50,6 +54,7 @@
 | Step 1-5: トレンド〜状況 | docs/step1-trend-to-situation.md |
 | Step 6-9: 台本〜クリップ構成 | docs/step2-story-to-scenario.md |
 | Step 11: Sora 2自動動画生成 | skills/step11-sora2-generate/SKILL.md |
+| Step 12: ウォーターマーク削除 | skills/step12-remove-watermark/SKILL.md |
 | ワークフロー全体 | skills/sora2-drama-workflow/SKILL.md |
 
 ## 重要ルール
