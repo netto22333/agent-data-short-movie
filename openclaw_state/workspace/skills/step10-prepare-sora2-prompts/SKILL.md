@@ -54,7 +54,24 @@ ORDER BY episode_no;
 
 ディレクトリが存在しない場合は作成する。再生成時は上書き。
 
-### 4. 人間レビュー
+### 4. DB保存
+
+生成したプロンプトを `generated_videos.sora2_prompts_json` にJSON形式で保存する。
+
+```sql
+UPDATE generated_videos
+SET sora2_prompts_json = json_object(
+  'clip1', '{clip1のプロンプト全文}',
+  'clip2', '{clip2のプロンプト全文}',
+  'clip3', '{clip3のプロンプト全文}',
+  'clip4', '{clip4のプロンプト全文}'
+)
+WHERE generation_job_id = {job_id} AND episode_no = 1;
+```
+
+⚠️ ファイル保存とDB保存の両方を行うこと。ファイルはSora 2へのコピペ用、DBはデータ永続化・トレーサビリティ用。
+
+### 5. 人間レビュー
 
 全ファイルの内容を人間に提示してレビュー依頼。修正要望があれば対応する。
 

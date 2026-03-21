@@ -7,7 +7,7 @@
 - **Sora 2 Extend方式**: 15秒Initial生成 + Extend×3 = 合計60秒
 - **プロンプト出力**: 人間がSora 2にコピペして動画生成
 
-## 全体フロー（10ステップ）
+## 全体フロー（11ステップ）
 
 ```
 [フェーズ1: トレンド調査・状況設計]
@@ -27,10 +27,11 @@
   ★ 人間レビュー: クリップ構成確認・承認
   Step 9: generated_videos レコード作成
 
-[フェーズ4: Sora 2プロンプト生成]
-  Step 10: Sora 2用プロンプト生成（Initial + Extend×3）
+[フェーズ4: Sora 2 動画生成]
+  Step 10: Sora 2用プロンプト生成（Initial + Extend×N）+ DB保存
   ★ 人間レビュー: プロンプト確認
-  → 人間がSora 2で動画生成（clip1.txt → Extend×3）
+  Step 11: Sora 2 自動動画生成（CDPブラウザ操作）
+    → Initial生成 + Extend×(clip数-1) + ダウンロード + DB更新
 ```
 
 ## 起承転結 × Extend の構成
@@ -48,6 +49,7 @@
 |---------|---------|
 | Step 1-5: トレンド〜状況 | docs/step1-trend-to-situation.md |
 | Step 6-9: 台本〜クリップ構成 | docs/step2-story-to-scenario.md |
+| Step 11: Sora 2自動動画生成 | skills/step11-sora2-generate/SKILL.md |
 | ワークフロー全体 | skills/sora2-drama-workflow/SKILL.md |
 
 ## 重要ルール
