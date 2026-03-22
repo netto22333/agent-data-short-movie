@@ -133,6 +133,7 @@ Camera: {カメラワーク。1ショット=1アクション+1カメラムーブ
 
 [QUALITY]
 Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
+No subtitles, no text overlays, no captions, no titles burned into the video.
 
 ---
 
@@ -143,6 +144,7 @@ Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
 - 最後のフレームの状態を明確にする（Extend用の起点）
 - 具体的な素材描写を使い、抽象表現を避ける
 - **登場人物は老若男女問わず必ず美男美女として描写する**（後述「キャラクター外見ルール」参照）
+- **動画内に字幕・テキスト・キャプションを一切入れない**（字幕はStep14でRemotionで後付けする）
 ```
 
 ---
@@ -203,6 +205,7 @@ Wide shot of the café exterior at sunset, two silhouettes visible through the g
 - Extend用プロンプトは簡潔に（世界観・キャラ説明の繰り返し不要）
 - 前クリップからの自然な連続性を保つ
 - カメラワークの指示も含める
+- **動画内に字幕・テキスト・キャプションを一切入れない**
 ```
 
 ---
