@@ -139,7 +139,51 @@ SET subtitles_json = '{subtitles_json_content}',
 WHERE id = {video_id};
 ```
 
-### 7. 結果確認
+### 7. AI校正（漢字誤変換の自動修正）
+
+Whisperは音が近い漢字を誤変換しやすい（例: 「息抜き」→「駅抜き」）。Claude APIで文脈から自動校正する。人間の介入なしで完了する。
+
+```bash
+# subtitles.jsonをClaude APIで自動校正
+node -e "
+const Anthropic = require('@anthropic-ai/sdk');
+const fs = require('fs');
+
+const subtitles = JSON.parse(fs.readFileSync('/tmp/subtitles.json', 'utf8'));
+
+const client = new Anthropic();
+(async () => {
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: \`以下はWhisper音声認識で生成した日本語字幕のJSONです。
+漢字の誤変換を文脈から修正し、修正後のJSON配列をそのまま出力してください。
+タイムスタンプ(start/end)は変更しないでください。テキストのみ修正してください。
+修正不要ならそのまま出力してください。JSON以外は出力しないでください。
+
+\${JSON.stringify(subtitles, null, 2)}\`
+    }]
+  });
+
+  const corrected = JSON.parse(response.content[0].text);
+  fs.writeFileSync('/tmp/subtitles.json', JSON.stringify(corrected, null, 2));
+
+  // 差分表示
+  for (let i = 0; i < subtitles.length; i++) {
+    if (subtitles[i].text !== corrected[i].text) {
+      console.log('修正:', subtitles[i].text, '→', corrected[i].text);
+    }
+  }
+  console.log('校正完了:', corrected.length, 'segments');
+})();
+"
+```
+
+校正済みの `/tmp/subtitles.json` をそのままDB保存に使う（手順6のDB更新で保存）。
+
+### 8. 結果確認
 
 ```sql
 SELECT id, subtitles_json FROM generated_videos WHERE id = {video_id};
@@ -178,6 +222,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/whisper-venv && \
+    /opt/whisper-venv/bin/pip install --no-cache-dir \
+    torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124 && \
     /opt/whisper-venv/bin/pip install --no-cache-dir openai-whisper
 
 ENV PATH="/opt/whisper-venv/bin:$PATH"
@@ -212,5 +258,4 @@ docker run --rm --gpus all whisper-transcribe --help
 
 ## 介入点
 
-- 文字起こし結果のテキスト内容を確認する。誤認識がある場合は手動で修正してDBを更新する。
-- BGMが多い動画では認識精度が低くなるため、結果の品質を目視確認する。
+なし。Whisper文字起こし → AI校正 → DB保存まで自動で完了する。
