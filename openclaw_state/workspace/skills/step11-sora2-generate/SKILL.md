@@ -9,8 +9,8 @@ description: Sora 2にブラウザ自動操作でプロンプトを投入し、I
 
 DBに保存されたSora 2プロンプト（`sora2_prompts_json`）を使い、CDPブラウザ操作で自動的に動画を生成する。
 
-- Clip1: Initial生成（15秒）
-- Clip2〜N: Extend（各15秒延長）× プロンプト数に応じた回数
+- Clip1: Initial生成（10秒）
+- Clip2〜N: Extend（各10秒延長）× プロンプト数に応じた回数
 - 完成動画をダウンロードしてファイル保存 + DB更新
 
 ## 前提条件
@@ -58,7 +58,7 @@ DBに保存されたSora 2プロンプト（`sora2_prompts_json`）を使い、C
 ```
 1. DB → sora2_prompts_json 取得（clip1, clip2, ..., clipN）
 2. CDP → https://sora.chatgpt.com/drafts にアクセス
-3. Clip1: プロンプト入力 → Duration 15s → Generate → 完了待機
+3. Clip1: プロンプト入力 → Duration 10s → Generate → 完了待機
 4. Clip2〜N: 動画選択 → Extend → プロンプト入力 → Generate → 完了待機
    ※ clip数に応じて動的にExtend回数が決まる
 5. 完成動画をダウンロード → workspace/videos/ep1/ に保存

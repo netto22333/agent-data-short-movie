@@ -1,19 +1,21 @@
 ---
 name: step10-prepare-sora2-prompts
-description: DBからクリップ構成を読み込み、Sora 2のInitial生成+Extend×4用のプロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
+description: DBからクリップ構成を読み込み、Sora 2のInitial生成+Extend×6用のプロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
 ---
 
-# Step10: Sora 2プロンプト生成（Initial + Extend×4）
+# Step10: Sora 2プロンプト生成（Initial + Extend×6）
 
 ## 概要
 
-Step8で承認された5クリップ構成を元に、Sora 2に直接コピペできるプロンプトを生成する。
+Step8で生成された7クリップ構成を元に、Sora 2に直接コピペできるプロンプトを生成する。
 
 - **clip1.txt**: Initial生成用（完全なプロンプト）
 - **clip2.txt**: Extend用（Clip1から延長する指示）
 - **clip3.txt**: Extend用（Clip2から延長する指示）
 - **clip4.txt**: Extend用（Clip3から延長する指示）
 - **clip5.txt**: Extend用（Clip4から延長する指示）
+- **clip6.txt**: Extend用（Clip5から延長する指示）
+- **clip7.txt**: Extend用（Clip6から延長する指示）
 
 ## フロー
 
@@ -52,6 +54,9 @@ ORDER BY episode_no;
 - `workspace/sora-prompts/ep1/clip2.txt`
 - `workspace/sora-prompts/ep1/clip3.txt`
 - `workspace/sora-prompts/ep1/clip4.txt`
+- `workspace/sora-prompts/ep1/clip5.txt`
+- `workspace/sora-prompts/ep1/clip6.txt`
+- `workspace/sora-prompts/ep1/clip7.txt`
 
 ディレクトリが存在しない場合は作成する。再生成時は上書き。
 
@@ -65,7 +70,10 @@ SET sora2_prompts_json = json_object(
   'clip1', '{clip1のプロンプト全文}',
   'clip2', '{clip2のプロンプト全文}',
   'clip3', '{clip3のプロンプト全文}',
-  'clip4', '{clip4のプロンプト全文}'
+  'clip4', '{clip4のプロンプト全文}',
+  'clip5', '{clip5のプロンプト全文}',
+  'clip6', '{clip6のプロンプト全文}',
+  'clip7', '{clip7のプロンプト全文}'
 )
 WHERE generation_job_id = {job_id} AND episode_no = 1;
 ```
@@ -83,12 +91,12 @@ WHERE generation_job_id = {job_id} AND episode_no = 1;
 Clip1はSora 2で新規生成するため、世界観・キャラクター・ロケーションを含む完全なプロンプトが必要。
 
 ```
-以下の情報を元に、Sora 2のInitial生成用プロンプト（15秒）を生成してください。
+以下の情報を元に、Sora 2のInitial生成用プロンプト（10秒）を生成してください。
 ⚠️ Sora 2にそのままコピペして使えるプロンプトを出力すること。
 ⚠️ セリフは短く、キャラクターの発話として自然に組み込むこと。
 
 【クリップ情報】
-- Clip1（起 / 0-15秒）: {clip1のbeat_summary}
+- Clip1（フック / 0-10秒）: {clip1のbeat_summary}
 - 感情ターゲット: {clip1のemotion_target}
 - セリフ: {clip1のdialogue}
 - シーン: {clip1のscenes}
@@ -105,7 +113,7 @@ Clip1はSora 2で新規生成するため、世界観・キャラクター・ロ
 ---
 
 [VISUAL IDENTITY]
-Color palette: {3-5色のカラーアンカー。全5クリップで統一する}
+Color palette: {3-5色のカラーアンカー。全7クリップで統一する}
 Lens: {レンズ指定。例: "35mm prime, f/2.0, slight grain"}
 Base lighting: {基本ライティング}
 
@@ -129,7 +137,7 @@ Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
 ---
 
 ⚠️ ルール:
-- 秒数はプロンプトに含めない（Sora 2 UIで15秒を指定する）
+- 秒数はプロンプトに含めない（Sora 2 UIで10秒を指定する）
 - 英語で記述する（Sora 2は英語プロンプトの精度が最も高い）
 - セリフは日本語のまま引用符で囲む（例: whispers "知ってたよ"）
 - 最後のフレームの状態を明確にする（Extend用の起点）
@@ -139,12 +147,12 @@ Photorealistic, cinematic color grading, {レンズ指定}, natural lighting
 
 ---
 
-## Clip2-4 プロンプトテンプレート（Extend用）
+## Clip2-7 プロンプトテンプレート（Extend用）
 
 Clip2以降はSora 2のExtend機能で生成する。前のクリップの最後のフレームから続くため、世界観の再説明は不要。展開の指示のみ。
 
 ```
-以下の情報を元に、Sora 2のExtend用プロンプト（15秒延長）を生成してください。
+以下の情報を元に、Sora 2のExtend用プロンプト（10秒延長）を生成してください。
 ⚠️ Extendは前のクリップの最後のフレームから続きを生成する。新たに世界観やキャラクターを説明し直す必要はない。
 ⚠️ 「次に何が起きるか」の展開指示を簡潔に記述する。
 
@@ -155,7 +163,7 @@ Clip2以降はSora 2のExtend機能で生成する。前のクリップの最後
 - シーン: {scenes}
 - ストーリービート: {story_beat}
 - 前クリップからの状態: {前クリップのtransition_to_next}
-- 次クリップへのつなぎ: {transition_to_next}（Clip4の場合はエンディング演出）
+- 次クリップへのつなぎ: {transition_to_next}（Clip7の場合はエンディング演出）
 
 【Sora 2 Extend プロンプトの形式】
 
@@ -169,30 +177,29 @@ Clip2以降はSora 2のExtend機能で生成する。前のクリップの最後
 
 ---
 
-例（Clip2 / 承）:
+例（Clip2 / 発端）:
 "He slowly picks up the letter from the table, his expression shifting from surprise to confusion.
-She turns away, arms crossed, whispering 'もう関係ないでしょ'.
-The warm café lighting gradually dims as clouds pass outside the window.
-He unfolds the letter, and his eyes widen — camera slowly pushes in on his face."
+She turns away, arms crossed. Camera pushes in on his trembling hands."
 
-例（Clip3 / 転）:
-"He stands up abruptly, the chair scraping against the floor.
-He holds up the letter and says '全部知ってる' — his voice steady but his hands trembling.
+例（Clip4 / 転換）:
+"He holds up the letter and says '全部知ってる' — his voice steady but his hands trembling.
 She spins around, shock on her face, tears forming.
-Quick cut to close-up of the letter's content — a photograph falls out onto the table."
+Quick cut to close-up — a photograph falls out onto the table."
 
-例（Clip4 / 結）:
-"She picks up the photograph — it shows them together, smiling, from years ago.
-Her tears fall onto the photo. She looks up at him and whispers 'ごめんね'.
-He reaches across the table and gently takes her hand.
+例（Clip5 / 絶望）:
+"She sinks into her chair, head in her hands. The café lights flicker.
+He stares at the photograph, jaw clenched, then slowly pushes it across the table."
+
+例（Clip7 / 決着＋余韻）:
+"She looks up at him and whispers 'ごめんね'. He gently takes her hand.
 Camera slowly pulls back through the café window — warm golden light returns.
-Wide shot of the café exterior at sunset, the two silhouettes visible through the glass."
+Wide shot of the café exterior at sunset, two silhouettes visible through the glass."
 
 ⚠️ ルール:
-- 秒数はプロンプトに含めない（Sora 2 UIで15秒を指定する）
+- 秒数はプロンプトに含めない（Sora 2 UIで10秒を指定する）
 - 英語で記述する
 - セリフは日本語のまま引用符で囲む
-- Clip4: 最後は余韻のある映像で締める（Wide shot、自然光、静かなエンディング）
+- Clip7: 最後は余韻のある映像で締める（Wide shot、自然光、静かなエンディング）
 - Extend用プロンプトは簡潔に（世界観・キャラ説明の繰り返し不要）
 - 前クリップからの自然な連続性を保つ
 - カメラワークの指示も含める
@@ -205,10 +212,13 @@ Wide shot of the café exterior at sunset, the two silhouettes visible through t
 ```
 workspace/sora-prompts/
   ep1/
-    clip1.txt    ← Initial生成用（完全プロンプト）
-    clip2.txt    ← Extend用（承の展開指示）
-    clip3.txt    ← Extend用（転の展開指示）
-    clip4.txt    ← Extend用（結の展開指示）
+    clip1.txt    ← Initial生成用（完全プロンプト・フック）
+    clip2.txt    ← Extend用（発端）
+    clip3.txt    ← Extend用（圧迫）
+    clip4.txt    ← Extend用（転換）
+    clip5.txt    ← Extend用（絶望）
+    clip6.txt    ← Extend用（覚醒）
+    clip7.txt    ← Extend用（決着＋余韻）
 ```
 
 ---
@@ -219,11 +229,13 @@ workspace/sora-prompts/
 === Step10 完了 ― Sora 2 プロンプト生成完了 ===
 
 workspace/sora-prompts/ep1/
-  clip1.txt  ← Sora 2 Initial生成（15秒）
-  clip2.txt  ← Clip1をExtend（15秒延長）
-  clip3.txt  ← Clip2をExtend（15秒延長）
-  clip4.txt  ← Clip3をExtend（15秒延長）
-  clip5.txt  ← Clip4をExtend（15秒延長）
+  clip1.txt  ← Sora 2 Initial生成（10秒）
+  clip2.txt  ← Clip1をExtend（10秒延長）
+  clip3.txt  ← Clip2をExtend（10秒延長）
+  clip4.txt  ← Clip3をExtend（10秒延長）
+  clip5.txt  ← Clip4をExtend（10秒延長）
+  clip6.txt  ← Clip5をExtend（10秒延長）
+  clip7.txt  ← Clip6をExtend（10秒延長）
 
 自動でStep11（Sora 2動画生成）へ進みます。
 ```
@@ -232,9 +244,9 @@ workspace/sora-prompts/ep1/
 
 - **英語で記述する**（Sora 2は英語プロンプトの精度が最も高い）
 - **セリフは日本語のまま引用符で囲む**（例: whispers "知ってたよ"）
-- **秒数はプロンプトに含めない**（Sora 2のUI側で15秒を指定）
+- **秒数はプロンプトに含めない**（Sora 2のUI側で10秒を指定）
 - **Clip1は完全なプロンプト**（キャラ・ロケーション・映像スタイルを含む）
-- **Clip2-4は展開指示のみ**（Extendなので世界観の再説明不要）
+- **Clip2-7は展開指示のみ**（Extendなので世界観の再説明不要）
 - **具体的な素材描写**を使い、抽象表現を避ける
 - **1ショット = 1アクション + 1カメラムーブ**を遵守する
 - **カラーアンカー・レンズ・ライティング**はClip1で定義し、一貫させる

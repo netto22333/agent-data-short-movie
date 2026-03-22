@@ -13,7 +13,7 @@ description: 確定済みの全情報を generation_jobs に INSERT し、job_id
    - `hook_pattern_id`
    - `emotion_target`
    - `episode_count` = **1**（1話完結固定）
-   - `duration_sec` = **75**（15秒×5クリップ）
+   - `duration_sec` = **70**（10秒×7クリップ）
 2. `generation_jobs` に INSERT する。
 4. 生成した `job_id` を表示する。
 
@@ -24,7 +24,7 @@ INSERT INTO generation_jobs (
   trend_keywords, event_name, situation_text,
   story_type_id, hook_pattern_id, emotion_target,
   episode_count, duration_sec
-) VALUES (?, ?, ?, ?, ?, ?, 1, 60);
+) VALUES (?, ?, ?, ?, ?, ?, 1, 70);
 ```
 
 ## 自動処理

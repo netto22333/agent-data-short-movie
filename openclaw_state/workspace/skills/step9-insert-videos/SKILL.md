@@ -23,8 +23,8 @@ INSERT INTO generated_videos (
 ) VALUES (?, 1, ?, ?, ?, ?, ?, 'pending', 'not_posted');
 ```
 
-- `scenes_json`: Step8で生成した4クリップ構成（`clips` 配列）をJSON文字列にシリアライズして格納
-- `story_beats`: Step8で生成した `story_beats`（起承転結の流れ）をそのまま格納
+- `scenes_json`: Step8で生成した7クリップ構成（`clips` 配列）をJSON文字列にシリアライズして格納
+- `story_beats`: Step8で生成した `story_beats`（7ビートの流れ）をそのまま格納
 - `emotion_target_per_ep`: 感情アーク（例: 不信→動揺→衝撃→許し）
 - `character_definitions` / `location_definitions` は `generation_jobs.prompt_text` 内に保持
 

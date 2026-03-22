@@ -97,7 +97,7 @@ ssh -i ~/.ssh/devpc_container_ed25519 -p 2223 -o StrictHostKeyChecking=no dev@19
        /app/input/{filename}'"
 ```
 
-処理時間の目安: 60秒の動画で約30〜60秒（RTX 1070 + mediumモデル）
+処理時間の目安: 70秒の動画で約40〜70秒（RTX 1070 + mediumモデル）
 スリープ設定は処理完了後（正常・異常問わず）に自動で30分に復帰する。
 
 ### 5. 結果（JSON）を2段SCPで取得する

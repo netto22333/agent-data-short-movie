@@ -57,7 +57,7 @@ npx remotion render SubtitleComposition \
   /tmp/output-with-subtitles.mp4
 ```
 
-レンダリング時間の目安: 60秒の動画で約2〜5分（CPU依存）
+レンダリング時間の目安: 70秒の動画で約3〜6分（CPU依存）
 
 ### 4. 出力動画を保存する
 
@@ -197,7 +197,7 @@ export const SubtitleComposition: React.FC<SubtitleProps> = ({videoPath, subtitl
         <div
           style={{
             position: 'absolute',
-            bottom: 160,
+            bottom: 450,
             left: 0,
             right: 0,
             display: 'flex',
@@ -248,7 +248,7 @@ npx remotion render SubtitleComposition \
 
 | 項目 | 値 |
 |------|-----|
-| 位置 | 画面下部中央（bottom: 160px） |
+| 位置 | 画面中央やや下（bottom: 450px） |
 | フォント | Noto Sans JP |
 | フォントサイズ | 48px |
 | フォントウェイト | 700 (Bold) |
@@ -260,7 +260,7 @@ npx remotion render SubtitleComposition \
 ## トラブルシューティング
 
 - **フォントが表示されない**: Mac miniコンテナのDockerfileで `fonts-noto-cjk` がインストール済み。`fc-list | grep Noto` で確認。
-- **レンダリングが遅い**: CPUのみで処理するため、60秒の動画で2〜5分かかる。正常動作。
+- **レンダリングが遅い**: CPUのみで処理するため、70秒の動画で3〜6分かかる。正常動作。
 - **動画が読み込めない**: `videoPath` が絶対パスであることを確認。Remotionは相対パスを解決できない場合がある。
 - **字幕のタイミングがずれる**: Step13のWhisper出力のタイムスタンプを確認。ずれが大きい場合はWhisperのモデルを `large` に変更して再実行。
 - **npm install エラー**: Node.js 22 + npm が必要。コンテナ内で `node -v` を確認。

@@ -1,6 +1,6 @@
 ---
 name: step6-generate-scenarios
-description: pending の generation_jobs から1話完結の台本（起承転結 + セリフ）を自動生成する。Use when Step6（台本生成）を実行する時。
+description: pending の generation_jobs から1話完結の台本（7ビート構成 + セリフ）を自動生成する。Use when Step6（台本生成）を実行する時。
 ---
 
 # Step6: 1話完結台本生成（全自動）
