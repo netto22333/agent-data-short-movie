@@ -65,15 +65,50 @@ DBに保存されたSora 2プロンプト（`sora2_prompts_json`）を使い、C
 6. DB更新: generated_videos.video_path, generation_jobs.video_generation_status='video_ready'
 ```
 
+## 生成完了の判定方法
+
+1分間隔でSora 2のDOMをポーリングし、以下の条件で完了を判定する:
+
+| DOM状態 | 判定 |
+|---|---|
+| `video[src]`あり + `[role="progressbar"]`なし | **完了** |
+| `[role="progressbar"]`あり | 生成中（待機続行） |
+| どちらもなし | 不明（待機続行） |
+
+- **ポーリング間隔**: 1分（`POLL_INTERVAL_MS = 60000`）
+- **タイムアウト**: 10分（`POLL_TIMEOUT_MS = 600000`）
+- タイムアウト時はエラーで停止する。Sora 2の負荷状況でタイムアウトが足りない場合は `--poll-timeout` で調整可能
+
+## ブラウザページクリーンアップ
+
+動画生成完了後、Sora 2で開いたページを閉じる。ページが蓄積するとメモリを圧迫しブラウザが不安定になる。
+
+```javascript
+const {chromium} = require('playwright-core');
+
+(async () => {
+  const browser = await chromium.connectOverCDP('http://127.0.0.1:18803');
+  const context = browser.contexts()[0];
+  for (const page of context.pages()) {
+    const url = page.url();
+    if (url.includes('sora.chatgpt.com')) {
+      await page.close();
+      console.log('CLOSED:', url);
+    }
+  }
+  console.log('Remaining pages:', context.pages().length);
+  process.exit(0);
+})();
+```
+
 ## トラブルシューティング
 
 - **プロンプト入力欄が見つからない**: Sora 2のUIが変更された可能性。noVNCで実際のDOMを確認し、`sora2-generate-cdp.mjs` のセレクタを修正する。
 - **ログインが切れている**: noVNCでブラウザを開き、ChatGPTに再ログインする。
-- **生成がタイムアウト**: Sora 2の負荷状況により10分以上かかる場合がある。タイムアウト値を `--poll-timeout` で調整するか、手動で完了を待つ。
-- **ダウンロードが失敗**: noVNCから手動でダウンロードし、`workspace/videos/ep1/` に保存後、DBを手動更新する。
+- **生成がタイムアウト**: Sora 2の負荷状況により10分以上かかる場合がある。タイムアウト値を `--poll-timeout` で調整して自動リトライする。
+- **ダウンロードが失敗**: 自動リトライする。3回失敗した場合はエラーログを残して停止する。
 
-## 介入点
+## 自動処理
 
-- スクリプト実行中もnoVNCでブラウザ操作を監視・介入可能。
-- エラー発生時は手動操作に切り替えてよい。
-- 動画ダウンロード後、品質を目視確認してから次のステップへ進む。
+- 全工程自動実行。エラー発生時は自動リトライする。
+- 動画ダウンロード完了後、自動で次ステップへ進む。

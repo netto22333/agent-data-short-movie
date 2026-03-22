@@ -1,18 +1,19 @@
 ---
 name: step10-prepare-sora2-prompts
-description: DBからクリップ構成を読み込み、Sora 2のInitial生成+Extend×3用のプロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
+description: DBからクリップ構成を読み込み、Sora 2のInitial生成+Extend×4用のプロンプトを生成・ファイル保存する。Use when Step10（Sora2プロンプト生成）を実行する時。
 ---
 
-# Step10: Sora 2プロンプト生成（Initial + Extend×3）
+# Step10: Sora 2プロンプト生成（Initial + Extend×4）
 
 ## 概要
 
-Step8で承認された4クリップ構成を元に、Sora 2に直接コピペできるプロンプトを生成する。
+Step8で承認された5クリップ構成を元に、Sora 2に直接コピペできるプロンプトを生成する。
 
 - **clip1.txt**: Initial生成用（完全なプロンプト）
 - **clip2.txt**: Extend用（Clip1から延長する指示）
 - **clip3.txt**: Extend用（Clip2から延長する指示）
 - **clip4.txt**: Extend用（Clip3から延長する指示）
+- **clip5.txt**: Extend用（Clip4から延長する指示）
 
 ## フロー
 
@@ -25,7 +26,7 @@ FROM generation_jobs
 WHERE video_generation_status='episodes_ready'
 ORDER BY id DESC;
 ```
-- 1件のみの場合はそのまま使用。複数ある場合は**人間に選択させる**。
+- 1件のみの場合はそのまま使用。複数ある場合は**最新のものを自動選択する**。
 
 `generated_videos` からクリップデータを取得する:
 ```sql
@@ -71,9 +72,9 @@ WHERE generation_job_id = {job_id} AND episode_no = 1;
 
 ⚠️ ファイル保存とDB保存の両方を行うこと。ファイルはSora 2へのコピペ用、DBはデータ永続化・トレーサビリティ用。
 
-### 5. 人間レビュー
+### 5. 自動確定
 
-全ファイルの内容を人間に提示してレビュー依頼。修正要望があれば対応する。
+生成したプロンプトをそのまま採用し、次ステップへ進む。
 
 ---
 
@@ -104,7 +105,7 @@ Clip1はSora 2で新規生成するため、世界観・キャラクター・ロ
 ---
 
 [VISUAL IDENTITY]
-Color palette: {3-5色のカラーアンカー。全4クリップで統一する}
+Color palette: {3-5色のカラーアンカー。全5クリップで統一する}
 Lens: {レンズ指定。例: "35mm prime, f/2.0, slight grain"}
 Base lighting: {基本ライティング}
 
@@ -212,26 +213,19 @@ workspace/sora-prompts/
 
 ---
 
-## 人間への提示メッセージ
+## 完了メッセージ
 
 ```
 === Step10 完了 ― Sora 2 プロンプト生成完了 ===
 
 workspace/sora-prompts/ep1/
-  clip1.txt  ← Sora 2にコピペ → 15秒でInitial生成
-  clip2.txt  ← Clip1動画をExtend → 15秒延長
-  clip3.txt  ← Clip2動画をExtend → 15秒延長
-  clip4.txt  ← Clip3動画をExtend → 15秒延長
+  clip1.txt  ← Sora 2 Initial生成（15秒）
+  clip2.txt  ← Clip1をExtend（15秒延長）
+  clip3.txt  ← Clip2をExtend（15秒延長）
+  clip4.txt  ← Clip3をExtend（15秒延長）
+  clip5.txt  ← Clip4をExtend（15秒延長）
 
-【Sora 2での操作手順】
-1. clip1.txt をSora 2にコピペ → Duration: 15s で生成
-2. 生成されたClip1動画を選択 → Extend → clip2.txt を入力 → 15s
-3. Clip2まで延長された動画を選択 → Extend → clip3.txt を入力 → 15s
-4. Clip3まで延長された動画を選択 → Extend → clip4.txt を入力 → 15s
-5. 合計60秒の完成動画をダウンロード
-
-各プロンプトの内容を確認してください。
-修正があれば指示してください。問題なければ上記手順でSora 2で生成してください。
+自動でStep11（Sora 2動画生成）へ進みます。
 ```
 
 ## プロンプト生成のガイドライン
@@ -263,7 +257,6 @@ workspace/sora-prompts/ep1/
 
 ⚠️ character_definitions の外見描写をそのまま使わず、上記ルールで美形修飾を追加してからプロンプトに組み込むこと。
 
-## 介入点
+## 自動処理
 
-- プロンプトの修正要望を受け付ける。特定クリップのみ再生成も可。
-- 確定後、人間がSora 2で動画生成を実行する。
+- プロンプト生成後、自動で確定し次ステップ（step11-sora2-generate）へ進む。

@@ -13,9 +13,8 @@ description: 確定済みの全情報を generation_jobs に INSERT し、job_id
    - `hook_pattern_id`
    - `emotion_target`
    - `episode_count` = **1**（1話完結固定）
-   - `duration_sec` = **60**（15秒×4クリップ）
-2. INSERT 内容を人間に提示し、確認を得る。
-3. `generation_jobs` に INSERT する。
+   - `duration_sec` = **75**（15秒×5クリップ）
+2. `generation_jobs` に INSERT する。
 4. 生成した `job_id` を表示する。
 
 ## INSERT SQL
@@ -28,9 +27,9 @@ INSERT INTO generation_jobs (
 ) VALUES (?, ?, ?, ?, ?, ?, 1, 60);
 ```
 
-## 介入点
+## 自動処理
 
-- INSERT 前に内容確認・修正を受け付ける。
+- 確認なしで自動INSERTし、次ステップへ進む。
 
 ## 出力
 

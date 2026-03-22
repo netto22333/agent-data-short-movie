@@ -1,9 +1,9 @@
 ---
 name: step6-generate-scenarios
-description: pending の generation_jobs から1話完結の台本（起承転結 + セリフ）を複数案生成し、人間レビューを得る。Use when Step6（台本生成）を実行する時。
+description: pending の generation_jobs から1話完結の台本（起承転結 + セリフ）を自動生成する。Use when Step6（台本生成）を実行する時。
 ---
 
-# Step6: 1話完結台本生成（人間レビュー必須）
+# Step6: 1話完結台本生成（全自動）
 
 ## 実行方法（必須）
 
@@ -15,15 +15,14 @@ claude --dangerously-skip-permissions "/step6-generate-scenarios job_id={job_id}
 
 ⚠️ openclawが直接台本生成を行わないこと。必ず Claude Code のスキル `/step6-generate-scenarios` に委譲する。
 ⚠️ 台本生成の詳細ロジック（ストーリーテリング原則・プロンプト・出力形式）は Claude Code 側のスキル定義に含まれている。
-⚠️ 人間レビューが必要なため `--print` は使わず対話モードで実行する。
+⚠️ 全自動のため `--print` モードで実行してよい。
 ⚠️ `--dangerously-skip-permissions` でワークスペース信頼確認・ツール実行許可をスキップする。
 
 ## 手順
 
 1. 対象の `generation_jobs` レコードの `job_id` を確認する。
 2. 上記コマンドで Claude Code のスキル `/step6-generate-scenarios` を呼び出す。
-3. Claude Code が2〜3案の台本を生成して人間に提示する。
-4. **人間レビュー承認を得るまで先へ進まない。**
+3. Claude Code が台本を1案生成し、そのまま採用する。
 
 ## DB確認クエリ（対象job_idの確認用）
 
@@ -39,10 +38,9 @@ WHERE j.prompt_review_status = 'pending'
 ORDER BY j.id DESC;
 ```
 
-## 介入点
+## 自動処理
 
-- 台本案の選択・修正・却下を受け付ける。
-- 承認後、次ステップ（step7-save-approved）へ渡す。
+- 生成した台本をそのまま採用し、次ステップ（step7-save-approved）へ渡す。
 
 ## 出力
 
