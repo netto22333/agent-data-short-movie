@@ -80,10 +80,15 @@ ssh -i ~/.ssh/devpc_container_ed25519 -p 2223 -o StrictHostKeyChecking=no dev@19
 
 ### 4. WSL上のDockerコンテナでWhisper実行する
 
+⚠️ **スリープ防止**: GPU処理中にWindowsがスリープしないよう、処理前後でスリープ制御を行う。trapにより異常終了時も自動復帰する。
+
 ```bash
 ssh -i ~/.ssh/devpc_container_ed25519 -p 2223 -o StrictHostKeyChecking=no dev@192.168.0.103 \
   "ssh -p 2222 -o StrictHostKeyChecking=no runner@host.docker.internal \
-    'cd ~/gpu-jobs/whisper-transcribe && \
+    'PWSH=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe && \
+     \$PWSH -Command \"powercfg /change standby-timeout-ac 0\" && \
+     trap \"\$PWSH -Command \\\"powercfg /change standby-timeout-ac 30\\\"\" EXIT && \
+     cd ~/gpu-jobs/whisper-transcribe && \
      docker run --rm --gpus all \
        -v \$(pwd)/input:/app/input \
        -v \$(pwd)/output:/app/output \
@@ -93,6 +98,7 @@ ssh -i ~/.ssh/devpc_container_ed25519 -p 2223 -o StrictHostKeyChecking=no dev@19
 ```
 
 処理時間の目安: 60秒の動画で約30〜60秒（RTX 1070 + mediumモデル）
+スリープ設定は処理完了後（正常・異常問わず）に自動で30分に復帰する。
 
 ### 5. 結果（JSON）を2段SCPで取得する
 

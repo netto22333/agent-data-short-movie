@@ -81,15 +81,23 @@ ssh -p 2222 -o StrictHostKeyChecking=no runner@host.docker.internal
 
 ⚠️ **WSLホスト上で直接 python 等を実行しない。必ず Docker コンテナ内で行う。**
 
+⚠️ **スリープ防止**: WindowsはWSL内のDocker GPU処理を「ユーザーアクティビティ」と認識しないため、処理中にPCがスリープする場合がある。GPU処理の前後で必ずスリープ制御を行うこと。
+
 ```bash
 # GPU確認（コンテナ内で）
 docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
+
+# スリープ無効化 → GPU処理 → スリープ復帰（trapで異常終了時も復帰を保証）
+/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command "powercfg /change standby-timeout-ac 0"
+trap '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command "powercfg /change standby-timeout-ac 30"' EXIT
 
 # 処理実行（~/gpu-jobs/ をマウントして使い捨てコンテナで実行）
 docker run --rm --gpus all \
   -v ~/gpu-jobs:/workspace \
   {gpu-image} \
   {command}
+
+# trapにより自動でスリープ設定が復帰する
 ```
 
 ## GPUコンテナイメージ
@@ -136,10 +144,13 @@ docker run --rm --gpus all \
 2段SSHをワンライナーで実行する場合:
 
 ```bash
-# コンテナ内でGPU処理を実行
+# スリープ無効化 → GPU処理 → スリープ復帰（trapで異常終了時も復帰を保証）
 ssh -i ~/.ssh/devpc_container_ed25519 -p 2223 -o StrictHostKeyChecking=no dev@192.168.0.103 \
   "ssh -p 2222 -o StrictHostKeyChecking=no runner@host.docker.internal \
-    'docker run --rm --gpus all -v ~/gpu-jobs:/workspace {gpu-image} {command}'"
+    'PWSH=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe && \
+     \$PWSH -Command \"powercfg /change standby-timeout-ac 0\" && \
+     trap \"\$PWSH -Command \\\"powercfg /change standby-timeout-ac 30\\\"\" EXIT && \
+     docker run --rm --gpus all -v ~/gpu-jobs:/workspace {gpu-image} {command}'"
 ```
 
 ## ファイル転送
@@ -188,6 +199,7 @@ docker run --rm --gpus all \
 
 ## トラブルシューティング
 
+- **GPU処理中にPCがスリープした**: WindowsはWSL内のDocker GPU処理を「ユーザーアクティビティ」と認識しない。GPU処理の前に `powercfg /change standby-timeout-ac 0` でスリープを無効化し、trapで異常終了時も復帰を保証すること（手順3参照）。
 - **接続拒否**: Windows PCがスリープ中。Wake on LANで起動する。
 - **kex_exchange_identification エラー**: WSL側のsshdが起動していない。WSL内で `sudo /usr/sbin/sshd` を実行（systemctlが使えない場合）。
 - **2222ポートが応答しない**: WSL側で `sudo ss -lntp | grep 2222` でlistenを確認。
