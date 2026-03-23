@@ -1,5 +1,7 @@
 .DS_Store
 claude_state/
+!claude_state/skills/
+!claude_state/skills/**
 openclaw_state/agents/
 openclaw_state/identity/
 openclaw_state/chrome-profile/
